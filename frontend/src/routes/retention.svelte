@@ -9,6 +9,7 @@
     kind: string;
     season_number: number;
     permanent: boolean;
+    enrolled: boolean;
     expires_at: string | null;
     available_at: string | null;
     deleted_at: string | null;
@@ -263,8 +264,8 @@
                   This title has a home here.
                 </p>
               {:else if item.expires_at}<p>
-                  Scheduled for deletion <strong>{date(item.expires_at)}</strong
-                  >
+                  {item.enrolled ? "Scheduled for deletion" : "Kept until"}
+                  <strong>{date(item.expires_at)}</strong>
                 </p>
               {:else}<p class="text-muted-foreground">
                   Waiting for {item.kind === "movie"

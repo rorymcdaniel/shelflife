@@ -75,6 +75,42 @@ def test_unauthenticated_keep_is_rejected():
     asyncio.run(run())
 
 
+def test_unrequested_keep_is_not_reported_as_scheduled_deletion(monkeypatch):
+    async def run():
+        async with database(monkeypatch) as factory, factory() as db:
+            entry = await engine.entry_for(db, "movie", 603)
+            await engine.keep(db, entry, 180, actor="friend", now=NOW)
+            response = routes.payload(entry)
+            assert response["expires_at"] and response["enrolled"] is False
+
+    asyncio.run(run())
+
+
+def test_season_status_honors_a_permanent_whole_show_keep(monkeypatch):
+    async def run():
+        async with database(monkeypatch) as factory:
+            async with factory() as db:
+                umbrella = await engine.entry_for(db, "series", 603)
+                await engine.keep(db, umbrella, None, actor="Roku", now=NOW)
+                await db.commit()
+            monkeypatch.setattr(
+                routes,
+                "jellyfin_identity",
+                AsyncMock(return_value=({}, {}, "series", 603, 2, "Season 2")),
+            )
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app_for()), base_url="http://test"
+            ) as client:
+                response = await client.get("/api/retention/jellyfin/" + "a" * 32)
+                assert response.status_code == 200 and response.json()["permanent"]
+            async with factory() as db:
+                child = await engine.entry_for(db, "series", 603, 2)
+                await engine.keep(db, child, 60, actor="browser", now=NOW)
+                assert child.permanent
+
+    asyncio.run(run())
+
+
 class Session:
     def __init__(self, *args, **kwargs):
         self.calls = []

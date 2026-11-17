@@ -62,6 +62,7 @@ def payload(entry: RetentionEntry) -> dict:
         "season_number": entry.season_number,
         "title": entry.title,
         "permanent": entry.permanent,
+        "enrolled": entry.requested_at is not None,
         "days": entry.days,
         "requested_at": utc(entry.requested_at).isoformat()
         if entry.requested_at
@@ -343,7 +344,7 @@ async def jellyfin_status(item_id: str, request: Request):
                 RetentionEntry.season_number == season,
             )
         )
-        return (
+        result = (
             payload(entry)
             if entry
             else {
@@ -353,6 +354,18 @@ async def jellyfin_status(item_id: str, request: Request):
                 "enrolled": False,
             }
         )
+        if kind == "series" and season >= 0:
+            umbrella = await db.scalar(
+                select(RetentionEntry).where(
+                    RetentionEntry.kind == "series",
+                    RetentionEntry.tmdb_id == tmdb_id,
+                    RetentionEntry.season_number == -1,
+                    RetentionEntry.permanent.is_(True),
+                )
+            )
+            if umbrella:
+                result.update(permanent=True, expires_at=None)
+        return result
 
 
 @router.post("/jellyfin/{item_id}/keep")

@@ -109,6 +109,17 @@ async def keep(
         raise ValueError(
             "This item has already left the library; request it again in Seerr"
         )
+    if entry.kind == "series" and entry.season_number >= 0:
+        umbrella = await db.scalar(
+            select(RetentionEntry).where(
+                RetentionEntry.kind == "series",
+                RetentionEntry.tmdb_id == entry.tmdb_id,
+                RetentionEntry.season_number == -1,
+                RetentionEntry.permanent.is_(True),
+            )
+        )
+        if umbrella:
+            days = None
     if entry.permanent:
         return
     if days is None:
