@@ -2,6 +2,8 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import pytest
+
 from backend.shelflife import library
 from backend.shelflife.models import RetentionEntry
 
@@ -36,6 +38,34 @@ def test_favorite_season_uses_api_key_compatible_parent_lookup(monkeypatch):
             library, "jellyfin", lambda: SimpleNamespace(_make_request=get)
         )
         assert await library.Library().favorites() == {("series", 603, 2)}
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize(
+    "pages",
+    [
+        [(SimpleNamespace(page=0, results=0), [])],
+        [
+            (SimpleNamespace(page=1, results=2), [SimpleNamespace(id=1)]),
+            (SimpleNamespace(page=2, results=2), []),
+        ],
+        [
+            (SimpleNamespace(page=1, results=2), [SimpleNamespace(id=1)]),
+            (SimpleNamespace(page=2, results=2), [SimpleNamespace(id=1)]),
+        ],
+        [
+            (SimpleNamespace(page=1, results=2), [SimpleNamespace(id=1)]),
+            (SimpleNamespace(page=2, results=3), [SimpleNamespace(id=2)]),
+        ],
+    ],
+)
+def test_incomplete_request_inventory_defers_cleanup(monkeypatch, pages):
+    async def run():
+        client = SimpleNamespace(get_requests=AsyncMock(side_effect=pages))
+        monkeypatch.setattr(library, "seerr", lambda: (1, client))
+        with pytest.raises(RuntimeError):
+            await library.Library().requests()
 
     asyncio.run(run())
 

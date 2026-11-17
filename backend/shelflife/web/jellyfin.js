@@ -33,7 +33,7 @@
         value.permanent
           ? "Kept permanently"
           : value.expires_at
-            ? "Scheduled for deletion on " +
+            ? (value.enrolled ? "Scheduled for deletion on " : "Kept until ") +
               new Date(value.expires_at).toLocaleDateString()
             : "Anyone can keep this title";
       text.textContent = describe(state);
