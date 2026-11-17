@@ -5,8 +5,8 @@
 FROM node:26-alpine3.22 AS frontend-build
 WORKDIR /frontend
 ARG VITE_APP_CHANNEL=dev
-COPY frontend/package.json ./package.json
-RUN npm install
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
 COPY frontend ./
 RUN VITE_APP_CHANNEL=${VITE_APP_CHANNEL} npm run build
 

@@ -13,6 +13,7 @@ if config.config_file_name is not None:
 # import all models so their tables are registered on Base.metadata before
 # autogenerate compares the schema.
 import backend.database.models as _models
+import backend.shelflife.models as _retention_models
 from backend.core.settings import settings
 from backend.database import Base
 

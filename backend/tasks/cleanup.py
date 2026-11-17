@@ -7861,6 +7861,9 @@ def _get_arr_action(
     exclusion, and delete.
     Synthetic/no-rule candidates fall back to the global delete behavior.
     """
+    criteria = getattr(candidate, "matched_criteria", None)
+    if isinstance(criteria, dict) and type(criteria.get("shelflife_entry_id")) is int:
+        return "unmonitor"
     matched_rules = [
         (rule_id, rules[rule_id])
         for rule_id in candidate.matched_rule_ids or []
@@ -14939,6 +14942,9 @@ async def _run_playback_guarded_candidates_impl(
             else:
                 allowed_candidates.append(candidate)
         candidates = allowed_candidates
+        from backend.shelflife.engine import deletion_gate
+
+        candidates = await deletion_gate(db, candidates)
         rule_ids = {rid for c in candidates for rid in c.matched_rule_ids or []}
         rules = {
             r.id: r

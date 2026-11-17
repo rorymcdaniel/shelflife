@@ -22,6 +22,7 @@
   import History from "./routes/history.svelte";
   import Rules from "./routes/rules.svelte";
   import Settings from "./routes/settings.svelte";
+  import Retention from "./routes/retention.svelte";
   import { Toaster } from "$lib/components/ui/sonner/index.js";
   import { onMount } from "svelte";
   import type { Component } from "svelte";
@@ -44,6 +45,7 @@
     });
 
   const routes = {
+    "/retention": route(Retention),
     "/": route(Dashboard),
     "/movies": route(Movies),
     "/series": route(Series),
@@ -125,7 +127,12 @@
   $effect(() => {
     const signedIn = $auth.isAuthenticated && !needsSetup;
     const label = signedIn ? pageTitles.get(router.location) : undefined;
-    document.title = label ? `${label} · Reclaimerr` : "Reclaimerr";
+    document.title =
+      router.location === "/retention"
+        ? "Library retention · Shelflife"
+        : label
+          ? `${label} · Shelflife`
+          : "Shelflife";
   });
 
   $effect(() => {
@@ -178,7 +185,7 @@
           {/if}
         </button>
         <img src={logoImage} alt="reclaimerr logo" class="w-6 h-6" />
-        <h1 class="font-semibold text-lg text-foreground">Reclaimerr</h1>
+        <h1 class="font-semibold text-lg text-foreground">Shelflife</h1>
         {#if isDevBuild}
           <span
             class="absolute right-1 top-1 z-10 rounded bg-destructive px-1.5 py-0.5 text-[10px]

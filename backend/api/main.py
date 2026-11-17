@@ -68,6 +68,8 @@ from backend.services.notification_destinations import (
     sync_pending_destination_notice,
 )
 from backend.services.watch_identity import seed_watch_user_aliases_if_empty
+from backend.shelflife.engine import run_loop as run_retention_loop
+from backend.shelflife.routes import router as retention_router
 from backend.utils.create_admin import create_initial_admin
 
 limiter = Limiter(key_func=get_remote_address)
@@ -150,6 +152,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         # load service configs from database and initialize clients
         await load_enabled_services()
+        background_tasks.append(asyncio.create_task(run_retention_loop()))
 
         # Register playback-user identities in the background so requester
         # watch rules work on the first preview after an upgrade rather than
@@ -185,6 +188,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         for background_task in background_tasks:
             background_task.cancel()
+        await asyncio.gather(*background_tasks, return_exceptions=True)
 
         for worker_task in worker_tasks:
             worker_task.cancel()
@@ -251,6 +255,7 @@ fastapi_app.include_router(duplicates_router)
 fastapi_app.include_router(protected_router)
 fastapi_app.include_router(system_router)
 fastapi_app.include_router(external_api_router)
+fastapi_app.include_router(retention_router)
 
 
 @fastapi_app.get("/docs", include_in_schema=False)

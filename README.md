@@ -1,55 +1,49 @@
-<p align="center">
-    <img height="100px" alt="Reclaimerr's logo with name" src="public/logo_name.svg" />
-</p>
+# Shelflife
 
-<p align="center">
-<picture><img alt="Desktop Build" src="https://img.shields.io/github/actions/workflow/status/jessielw/reclaimerr/.github%2Fworkflows%2Fdesktop.yml?style=flat&logo=github&logoColor=white&label=Desktop%20Build"></picture>
-<picture><img alt="Docker Build" src="https://img.shields.io/github/actions/workflow/status/jessielw/reclaimerr/.github%2Fworkflows%2Fdocker.yml?style=flat&logo=docker&logoColor=white&label=Docker%20Build"></picture>
-<picture><img alt="Frontend Check" src="https://img.shields.io/github/actions/workflow/status/jessielw/reclaimerr/.github%2Fworkflows%2Ffrontend.yml?style=flat&logo=svelte&logoColor=white&label=Frontend"></picture>
-<picture><img alt="Backend Check" src="https://img.shields.io/github/actions/workflow/status/jessielw/reclaimerr/.github%2Fworkflows%2Fruff.yml?style=flat&logo=python&logoColor=white&label=Backend"></picture>
-<picture><img alt="BasedPyright" src="https://img.shields.io/github/actions/workflow/status/jessielw/reclaimerr/.github%2Fworkflows%2Ftypecheck.yml?style=flat&logo=python&logoColor=white&label=BasedPyright"></picture>
-</p>
+New requests get room to breathe. Keep the ones that matter.
 
-**Reclaimerr** scans media libraries for eligible items, tracks protection and
-deletion requests, and routes the final action through the appropriate service.
+Shelflife adds a shared retention policy to **Seerr + Jellyfin**, extending [Reclaimerr](https://github.com/jessielw/Reclaimerr). It is intended for a small, trusted household library.
 
-- [Getting started](docs/getting-started/index.md)
-- [Docker deployment](docs/deployment/docker.md)
-- [Contributing](docs/development/contributing.md)
+- New Seerr requests default to **60 days from availability**, with an explanation and a longer/forever choice before submission.
+- A requested TV season gets its window when the **complete season** is available. Other seasons are not enrolled by that request.
+- Jellyfin descriptions show the date and how to keep the title. Leaving Soon collections highlight the final seven days.
+- Any signed-in user can keep a title for longer or forever, immediately. There is no approval queue.
+- On the **official Roku app**, Favorite means keep forever. Unfavoriting does **not** undo that keep. Favoriting an episode protects its season; favoriting a show covers present and future seasons.
+- Browsers, including phone browsers, get a dedicated **Keep…** button. No Roku fork or custom app installation is required.
+- Longer and permanent keeps always win. Old requests and the existing library are not automatically enrolled.
 
-## Capabilities
+**Status: initial preview.** Automated tests cover the retention contract and browser integrations. Validate the notice and Favorite behavior on your physical Roku before turning on deletion. Preview is the default: it records proposed deadlines without changing files, descriptions or collections. Turning preview off gives available titles a fresh full viewing window.
 
-- Supports Jellyfin, Plex, and Emby
-- Integrates with Radarr and Sonarr when configured
-- Scans candidates using your reclaim rules
-- Respects protection, pending requests, and approval flows
-- Supports scheduled tasks, including automatic cleanup deletion
-- Can move instead of delete when configured
+## Run with Docker
 
-## Quick Start
+Clone this repository and follow [installation and rollout](docs/shelflife/installation.md). The supplied [Compose example](deploy/compose.example.yaml) starts the application and a small Nginx gateway on localhost. It does not replace your existing media containers.
 
-1. Install Reclaimerr with Docker, Desktop, or source.
-2. Connect at least one media server.
-3. Set one server as the main server when multiple servers are configured.
-4. Review the task schedule before enabling deletion.
+```sh
+cp deploy/env.example deploy/.env
+# Set MEDIA_NETWORK to the existing Docker network used by your media containers.
+docker compose -p shelflife --env-file deploy/.env -f deploy/compose.example.yaml up -d --build
+```
 
-## Support
+Open `http://localhost:8010`, complete setup, connect Jellyfin, Seerr, Sonarr and Radarr, then open **Library retention**. Use the internal service addresses for these connections, so they never loop back through the gateway.
 
-- [Documentation](https://jessielw.github.io/Reclaimerr/)
-- [GitHub Discussions](https://github.com/jessielw/Reclaimerr/discussions)
-- Matrix: https://matrix.to/#/#reclaimerr:matrix.org
+Your existing HTTPS reverse proxy must route Seerr to gateway port `5056` and Jellyfin to gateway port `8097`. All clients, including Roku, need to use that Jellyfin address. The gateway records Favorites before forwarding them, including favorites removed before a periodic scan can observe them. Direct connections bypass that guarantee.
 
-## Preview
+## Compatibility and limits
 
-![image](public/login.png)
-![image](public/dashboard.png)
-![image](public/movies.png)
-![image](public/series.png)
-![image](public/reclaim-candidates.png)
-![image](public/rules.png)
-![image](public/rule-node.png)
-![image](public/settings-notifications.png)
-![image](public/settings-servers.png)
-![image](public/settings-tasks.png)
-![image](public/settings-users.png)
-![image](public/user-signals.png)
+One main Jellyfin server, one enabled Seerr connection, and one application process are supported. Sonarr is required to verify complete seasons. Movies/seasons need stable TMDB identifiers and a completed Reclaimerr library sync. Missing identifiers, uncertain finale information, incomplete inventories, unavailable servers and active playback defer cleanup.
+
+The Keep button supports Jellyfin Web and phone browsers. Native mobile clients may display the metadata notice and can use Favorite, but are not promised a custom button. Subpath installations are not supported. Existing TLS and access controls remain the reverse proxy's responsibility.
+
+The gateway injects small scripts into stock web clients. Seerr/Jellyfin updates can change those interfaces; repeat the [acceptance checklist](docs/shelflife/testing.md) after updates. Their normal update channels remain unchanged. Client updates may require an integration fix.
+
+## Development and contributions
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for checks, [the product contract](docs/shelflife/product.md) for expected behavior, and [research](docs/shelflife/research.md) for the choice of foundation.
+
+Python 3.11–3.13 and Node 26 are supported by the current build. Lockfiles are committed. CI runs backend tests, Python lint/types, frontend checks/build, browser acceptance tests and the container build on pull requests. Dependabot proposes updates; it does not merge them automatically.
+
+## License and upstream
+
+GPL-3.0; see [LICENSE.md](LICENSE.md). Reclaimerr's license, attribution and history are retained. Shelflife is an independent derivative, not an official Reclaimerr, Jellyfin or Seerr release. The initial base is Reclaimerr **0.6.12**, commit `76574445f45bf993d2388a31c8600f7bf46b73dc`.
+
+The additions live primarily in `backend/shelflife`, with a migration, a retention page, a cleanup guard and the gateway. See [updating](docs/shelflife/updating.md) for maintaining the upstream relationship. Inherited documentation under `docs/` describes Reclaimerr's administration features; Shelflife instructions live under `docs/shelflife/`.

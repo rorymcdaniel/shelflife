@@ -1,0 +1,68 @@
+# Loaded by the stock nginx image. Only SHELFLIFE_* variables are substituted.
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
+map $http_x_forwarded_proto $forwarded_scheme {
+    default $http_x_forwarded_proto;
+    '' $scheme;
+}
+# Omit query strings, cookies and authorization (Jellyfin permits tokens in URLs).
+log_format shelflife '$remote_addr $request_method $uri $status';
+resolver 127.0.0.11 valid=30s ipv6=off;
+
+server {
+    listen 8080;
+    access_log /var/log/nginx/access.log shelflife;
+    client_max_body_size 20m;
+    set $seerr ${SHELFLIFE_SEERR_UPSTREAM};
+    set $keeper ${SHELFLIFE_APP_UPSTREAM};
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-Proto $forwarded_scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header Accept-Encoding "";
+    proxy_read_timeout 90s;
+
+    location = /api/v1/request {
+        proxy_pass $keeper/api/retention/seerr/request$is_args$args;
+    }
+    location ~ ^/shelflife/assets/(common|seerr)\.js$ {
+        rewrite ^/shelflife/(.*)$ /api/retention/$1 break;
+        proxy_pass $keeper;
+    }
+    location / {
+        sub_filter '</head>' '<script defer src="/shelflife/assets/common.js"></script><script defer src="/shelflife/assets/seerr.js"></script></head>';
+        sub_filter_once on;
+        proxy_pass $seerr;
+    }
+}
+
+server {
+    listen 8081;
+    access_log /var/log/nginx/access.log shelflife;
+    client_max_body_size 20m;
+    set $jellyfin ${SHELFLIFE_JELLYFIN_UPSTREAM};
+    set $keeper ${SHELFLIFE_APP_UPSTREAM};
+    proxy_http_version 1.1;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-Proto $forwarded_scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_set_header Accept-Encoding "";
+    proxy_buffering off;
+    proxy_read_timeout 3600s;
+
+    location ~* ^/(?:Users/[a-f0-9-]+/FavoriteItems|UserFavoriteItems)/([a-f0-9-]+)$ {
+        proxy_pass $keeper/api/retention/roku/favorite/$1$is_args$args;
+    }
+    location ~ ^/shelflife/(assets/(common|jellyfin)\.js|jellyfin/[a-fA-F0-9-]+(/keep)?)$ {
+        rewrite ^/shelflife/(.*)$ /api/retention/$1 break;
+        proxy_pass $keeper;
+    }
+    location / {
+        sub_filter '</head>' '<script defer src="/shelflife/assets/common.js"></script><script defer src="/shelflife/assets/jellyfin.js"></script></head>';
+        sub_filter_once on;
+        proxy_pass $jellyfin;
+    }
+}

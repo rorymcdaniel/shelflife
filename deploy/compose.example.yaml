@@ -1,0 +1,42 @@
+services:
+  shelflife:
+    build:
+      context: ..
+    image: shelflife:local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8010:8000"
+    environment:
+      TZ: ${TZ:-UTC}
+      CORS_ORIGINS: ${SHELFLIFE_PUBLIC_URL:-http://localhost:8010}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    volumes:
+      - shelflife-data:/app/data
+    networks:
+      - media
+
+  shelflife-gateway:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    depends_on:
+      - shelflife
+    ports:
+      - "127.0.0.1:5056:8080"
+      - "127.0.0.1:8097:8081"
+    environment:
+      NGINX_ENVSUBST_FILTER: ^SHELFLIFE_
+      SHELFLIFE_APP_UPSTREAM: http://shelflife:8000
+      SHELFLIFE_SEERR_UPSTREAM: ${SEERR_UPSTREAM:-http://jellyseerr:5055}
+      SHELFLIFE_JELLYFIN_UPSTREAM: ${JELLYFIN_UPSTREAM:-http://jellyfin:8096}
+    volumes:
+      - ./gateway.conf.template:/etc/nginx/templates/default.conf.template:ro
+    networks:
+      - media
+
+volumes:
+  shelflife-data:
+
+networks:
+  media:
+    external: true
+    name: ${MEDIA_NETWORK:-servarr_network}

@@ -71,6 +71,8 @@ include = [
     "backend/api/**/*.py",
     "backend/services/**/*.py",
     "backend/tasks/**/*.py",
+    "backend/shelflife/**/*.py",
+    "tests/test_shelflife*.py",
     "desktop/**/*.py",
     "scripts/**/*.py",
 ]
@@ -80,6 +82,8 @@ exclude = ["backend/alembic/**/versions/*.py"]
 select = ["I", "UP"]
 
 [tool.basedpyright]
+venvPath = "."
+venv = ".venv"
 include = ["backend", "desktop"]
 exclude = ["backend/alembic/versions"]
 typeCheckingMode = "standard"

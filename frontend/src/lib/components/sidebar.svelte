@@ -53,6 +53,13 @@
   // adminOnly = whether to show item only for admin users
   const navItems: NavItem[] = [
     {
+      path: "/retention",
+      label: "Library retention",
+      icon: CalendarDays,
+      adminOnly: false,
+      tooltip: "Give titles more time or keep them forever",
+    },
+    {
       path: "/",
       label: "Dashboard",
       icon: House,
@@ -275,7 +282,7 @@
         <img src={logoImage} alt="reclaimerr logo" class="w-10 h-10" />
       </div>
       <h1 class="text-xl font-bold text-foreground hover:text-inherit">
-        Reclaimerr
+        Shelflife
       </h1>
     </a>
     <!-- theme toggle -->
@@ -490,7 +497,7 @@
       class="flex items-center gap-3 text-xs text-muted-foreground break-keep cursor-default"
     >
       <HardDrive class="text-muted-foreground" />
-      Reclaimerr v{VERSION}
+      Based on Reclaimerr v{VERSION}
     </div>
     <SidebarNotices />
   </div>

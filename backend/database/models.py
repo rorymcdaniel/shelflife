@@ -21,6 +21,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+import backend.shelflife.models as _shelflife_models
+
 from backend.database import Base
 from backend.enums import (
     BackgroundJobPriority,

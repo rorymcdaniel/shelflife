@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+      - run: uv sync --group dev --extra desktop --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run basedpyright
+      - run: uv run pytest
+
+  frontend:
+    name: Frontend and browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      - run: npx prettier --check src/routes/retention.svelte src/app.svelte src/lib/components/sidebar.svelte tests/browser playwright.config.js ../backend/shelflife/web
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+
+  container:
+    name: Container
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker build --build-arg VITE_APP_CHANNEL=release -t shelflife:test .
+      - name: Check startup and migrations
+        run: |
+          docker run -d --name shelflife-test -p 127.0.0.1:8010:8000 -e CORS_ORIGINS=http://localhost:8010 shelflife:test
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8010/api/setup/status; then exit 0; fi
+            sleep 2
+          done
+          exit 1
+      - name: Check gateway configuration
+        run: |
+          docker run --rm -e SHELFLIFE_APP_UPSTREAM=http://shelflife:8000 -e SHELFLIFE_SEERR_UPSTREAM=http://seerr:5055 -e SHELFLIFE_JELLYFIN_UPSTREAM=http://jellyfin:8096 -e NGINX_ENVSUBST_FILTER='^SHELFLIFE_' -v "$PWD/deploy/gateway.conf.template:/etc/nginx/templates/default.conf.template:ro" nginx:1.28-alpine nginx -t
+
+  required:
+    name: Required checks
+    if: always()
+    needs: [backend, frontend, container]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          BACKEND: ${{ needs.backend.result }}
+          FRONTEND: ${{ needs.frontend.result }}
+          CONTAINER: ${{ needs.container.result }}
+        run: test "$BACKEND" = success && test "$FRONTEND" = success && test "$CONTAINER" = success

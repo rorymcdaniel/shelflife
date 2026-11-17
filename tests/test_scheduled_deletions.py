@@ -919,7 +919,7 @@ def test_migration_matches_schedule_model_and_preserves_existing_rows():
             tables=[
                 table
                 for table in Base.metadata.sorted_tables
-                if table.name != "scheduled_deletions"
+                if table.name != "scheduled_deletions" and not table.name.startswith("shelflife_")
             ],
         )
         connection.execute(

@@ -49,3 +49,11 @@ frontend/.svelte-check/
 # docker
 compose.yml
 compose.yaml
+# Local deployment and browser artifacts never belong in the public repository.
+*.secrets.env
+secrets.env
+deploy/.env
+deploy/local*
+frontend/test-results/
+frontend/playwright-report/
+tests/.tmp/
