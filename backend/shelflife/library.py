@@ -95,7 +95,31 @@ class Library:
 
     async def requests(self):
         config_id, client = seerr()
-        return config_id, await client.get_all_requests()
+        requests = []
+        seen: set[int] = set()
+        expected_total = None
+        while True:
+            page, rows = await client.get_requests(take=100, skip=len(requests))
+            if (
+                page.page < 1
+                or page.results < 0
+                or (expected_total is not None and page.results != expected_total)
+            ):
+                raise RuntimeError("Seerr returned an inconsistent request inventory")
+            expected_total = page.results
+            for row in rows:
+                if row.id in seen:
+                    raise RuntimeError("Seerr repeated a request inventory page")
+                seen.add(row.id)
+            requests.extend(rows)
+            if (
+                len(requests) > expected_total
+                or not rows
+                and len(requests) != expected_total
+            ):
+                raise RuntimeError("Seerr returned an incomplete request inventory")
+            if len(requests) == expected_total:
+                return config_id, requests
 
     async def favorites(self) -> set[tuple[str, int, int]]:
         client = jellyfin()
